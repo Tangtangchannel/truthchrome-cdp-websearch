@@ -4,6 +4,7 @@ import { createDownloadTool } from './lib/download.js'
 import { createJournal } from './lib/journal.js'
 import { PageSession } from './lib/page.js'
 import { createProviders } from './lib/providers.js'
+import { createXiaohongshuTool } from './lib/xiaohongshu.js'
 
 /** Cordis plugin name, shown in composition listings. */
 export const name = 'web-browser'
@@ -35,6 +36,9 @@ export function apply(ctx, config) {
     journal,
     openSession: () => PageSession.open(host),
   })
+  const xiaohongshuTool = settings.xiaohongshu.enabled
+    ? createXiaohongshuTool({ host, settings, journal })
+    : undefined
 
   ctx.effect(() => {
     const disposers = [
@@ -42,8 +46,11 @@ export function apply(ctx, config) {
       ctx.web.registerFetchProvider(providers.fetch),
     ]
     if (typeof ctx.tools?.register === 'function') {
-      const disposeTool = ctx.tools.register(downloadTool)
-      if (typeof disposeTool === 'function') disposers.push(disposeTool)
+      for (const tool of [downloadTool, xiaohongshuTool]) {
+        if (tool === undefined) continue
+        const disposeTool = ctx.tools.register(tool)
+        if (typeof disposeTool === 'function') disposers.push(disposeTool)
+      }
     }
     return async () => {
       for (const dispose of disposers.reverse()) {

@@ -10,11 +10,12 @@
 
 Harness 自带的搜索走 HTTP API，自带的抓取就是个 HTTP 客户端。两者会被同样的东西拦住：机器人校验、纯 JS 渲染的页面、登录拦页。这个插件改成驱动一个真实的有头 Chromium（CDP 协议），模型看到的就是人打开页面看到的内容。
 
-它不改工具、不改提示词、不改任何面向模型的文案，只注册两个 `ctx.web` provider，再把 `web` 服务指过去。
+它不改 host 的 `web_search` / `web_fetch` 工具和提示词，只注册两个 `ctx.web` provider 把 `web` 服务指过去；另有一个默认关闭的可选工具 `xhs_search`。
 
 - `web_search` → 在真实标签页里打开 Bing / DuckDuckGo / 百度，从 DOM 里取结果链接，还原跳转地址，返回 `{ sources: [{ title, url, snippet }] }`。
 - `web_download` → 用浏览器的 cookie、UA 和你给的 `Referer` 把文件（图片、视频、音频、PDF、zip）存到磁盘；字节不进入对话，返回路径、大小和 sha256。这是「按 tag 找图并留下原图」能成立的原因——`i.pximg.net` 没有 pixiv 的 Referer 会直接 403。
 - `web_fetch` → 在真实标签页里打开目标页，等掉常见的机器人拦截页，去掉 script/style/svg/iframe，返回干净的 HTML 或纯文本。
+- `xhs_search` → 在小红书的搜索页里读 DOM，返回笔记标题、链接（带 `xsec_token`，否则笔记打不开）、作者、点赞数和发布时间。它是独立工具而不是 `web_search` 的参数：`web_search` 的参数由 host 定义（只有 `queries`），插件加不了 `source`。默认关闭，在已登录的 profile 上打开 `xiaohongshu.enabled` 才有意义；未登录时工具会明确报登录墙。
 
 ## 安装
 
@@ -63,6 +64,9 @@ plugin_manager install_bundle  target: /absolute/path/to/dsh-chromium-websearch
 | `downloadMaxFiles` | `20` | 单次调用允许的 URL 数上限。 |
 | `downloadTimeoutMs` | `60000` | 单个文件的超时。 |
 | `downloadMinIntervalMs` | `1000` | 同一批文件之间的间隔。 |
+| `xiaohongshu.enabled` | `false` | 注册 `xhs_search` 工具；只在已登录的 profile 上有意义。 |
+| `xiaohongshu.maxResults` | `10` | 单次默认返回的笔记数（1-20）。 |
+| `xiaohongshu.timeoutMs` | `30000` | 搜索预算，包含等卡片渲染的时间。 |
 | `provisionDir` | `~/.dsh/browser-web/chromium` | 下载的浏览器放哪。 |
 | `indexUrl` | 官方索引 | 换镜像或离线副本时用。 |
 | `headless` | `false` | 无窗口运行；有些拦截页只有有头模式能过。 |

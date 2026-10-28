@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { test } from './harness.mjs'
 import { DEFAULTS, normalizeSettings, resolveChrome, chromeCandidates, missingBrowserHint, PROVIDER_ID } from '../lib/config.js'
 import { unwrapRedirect, normalizeResults, engineUrl, ENGINE_NAMES } from '../lib/search.js'
+import { normalizeNotes, searchUrl, renderNotes } from '../lib/xiaohongshu.js'
 import { looksLikeChallenge } from '../lib/fetch.js'
 import { shouldDisableSandbox } from '../lib/chrome.js'
 import { normalizeUrl, createProviders } from '../lib/providers.js'
@@ -312,4 +313,69 @@ test('the trace records the engine and hashes the query', async () => {
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
+})
+
+test('xiaohongshu settings are opt-in and clamped', () => {
+  assert.equal(normalizeSettings({}).xiaohongshu.enabled, false, 'the tool is off unless asked for')
+  assert.equal(normalizeSettings({}).xiaohongshu.maxResults, 10)
+  const on = normalizeSettings({ xiaohongshu: { enabled: true, maxResults: 999 } })
+  assert.equal(on.xiaohongshu.enabled, true)
+  assert.equal(on.xiaohongshu.maxResults, 20)
+  const low = normalizeSettings({ xiaohongshu: { maxResults: 0 } })
+  assert.equal(low.xiaohongshu.maxResults, 1)
+})
+
+test('xiaohongshu search url encodes the keyword', () => {
+  const url = new URL(searchUrl('咖啡 探店'))
+  assert.equal(url.origin, 'https://www.xiaohongshu.com')
+  assert.equal(url.pathname, '/search_result')
+  assert.equal(url.searchParams.get('keyword'), '咖啡 探店')
+  assert.equal(url.searchParams.get('source'), 'web_explore_feed')
+})
+
+test('xiaohongshu cards become absolute, deduplicated notes', () => {
+  const suffix = '?xsec_token=ABC&xsec_source=pc_search'
+  const notes = normalizeNotes(
+    [
+      { noteId: 'a1', href: `/search_result/a1${suffix}`, title: '  巴黎  \n 时装周 ', author: '某人', time: '10-28', likes: '1.2万' },
+      { noteId: 'a1', href: `/search_result/a1${suffix}`, title: '重复', author: '某人' },
+      { noteId: 'b2', href: 'https://www.xiaohongshu.com/explore/b2', title: '', author: '阿兰', time: '编辑于 10-20' },
+      { noteId: '', href: '/user/profile/xyz', title: '不是笔记' },
+      { noteId: '', href: 'https://evil.example/search_result/c3', title: '外部' },
+      { noteId: '', href: '/search_result/c4', title: '第三条' },
+    ],
+    10,
+  )
+  assert.equal(notes.length, 3)
+  assert.equal(notes[0].title, '巴黎 时装周')
+  assert.equal(notes[0].snippet, '作者 某人 · 点赞 1.2万 · 发布 10-28')
+  assert.equal(notes[0].url, `https://www.xiaohongshu.com/search_result/a1${suffix}`)
+  assert.equal(notes[1].title, '阿兰的笔记', 'a card without a title falls back to its author')
+  assert.equal(notes[2].url, 'https://www.xiaohongshu.com/search_result/c4', 'a note without an id is deduplicated by url')
+})
+
+test('xiaohongshu results respect the requested cap', () => {
+  const cards = Array.from({ length: 12 }, (_, index) => ({ noteId: `n${index}`, href: `/search_result/n${index}`, title: `笔记 ${index}` }))
+  assert.equal(normalizeNotes(cards, 3).length, 3)
+  const rendered = renderNotes({ query: '咖啡', url: searchUrl('咖啡'), notes: normalizeNotes(cards, 1), durationMs: 42 })
+  assert.match(rendered, /"咖啡" · 1 note\(s\) · 42 ms/u)
+  assert.match(rendered, /1\. 笔记 0/u)
+  assert.match(rendered, /https:\/\/www\.xiaohongshu\.com\/search_result\/n0/u)
+})
+
+test('apply registers xhs_search only when enabled', async () => {
+  const { apply } = await import('../index.js')
+  const run = (config) => {
+    const names = []
+    const ctx = {
+      web: { registerSearchProvider: () => () => {}, registerFetchProvider: () => () => {} },
+      tools: { register: (tool) => { names.push(tool.name); return () => {} } },
+      effect: (body) => { body() },
+    }
+    apply(ctx, config)
+    return names
+  }
+  assert.deepEqual(run({ mode: 'anonymous', journal: false }), ['web_download'])
+  const enabled = run({ mode: 'anonymous', journal: false, xiaohongshu: { enabled: true } })
+  assert.deepEqual(enabled, ['web_download', 'xhs_search'])
 })

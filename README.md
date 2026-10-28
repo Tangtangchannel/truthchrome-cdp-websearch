@@ -28,6 +28,13 @@ It changes no tool, no prompt, and no model-facing text. It only registers two
 - `web_fetch` → loads the URL in a real tab, waits out common bot
   interstitials, strips scripts/styles/svg/iframes, and returns the cleaned HTML
   (or visible text) plus the status code and final URL.
+- `xhs_search` → searches xiaohongshu.com (小红书) through the DOM and returns
+  note titles, links (with the `xsec_token` that makes a note readable), authors,
+  likes, and publish times. It is a separate tool on purpose: the `web_search`
+  tool's arguments belong to the host (`queries` only), so a `source` parameter
+  cannot be added from a plugin. Off by default; enable `xiaohongshu.enabled` on a
+  signed-in profile, otherwise the page answers with a login wall and the tool
+  reports exactly that.
 - Engines are tried in order until one yields enough results, each with its own
   slice of the time budget, so one blocked engine cannot consume the request.
 - The browser is reused between calls. Which profile it runs against depends on
@@ -183,6 +190,9 @@ browser installed.
 | `downloadMaxFiles` | `20` | Refuse a `web_download` call asking for more URLs than this. |
 | `downloadTimeoutMs` | `60000` | Per-file deadline. |
 | `downloadMinIntervalMs` | `1000` | Pause between files in one call. |
+| `xiaohongshu.enabled` | `false` | Register the `xhs_search` tool. It is only useful with a signed-in profile. |
+| `xiaohongshu.maxResults` | `10` | Default note count for one `xhs_search` call (1-20). |
+| `xiaohongshu.timeoutMs` | `30000` | Search budget, including the wait for cards to render. |
 
 ## Reloading
 
@@ -193,10 +203,10 @@ reach the running process.
 
 ## Trace
 
-With `journal: true` each search and fetch appends one JSONL line to
-`journalPath`: timestamp, operation, engine, result count, duration, HTTP host
-(for fetches), and a 16-hex SHA-256 prefix of the query. The query text, page
-content, URLs, and cookies are never written.
+With `journal: true` each search, fetch, download, and xiaohongshu search
+appends one JSONL line to `journalPath`: timestamp, operation, engine, result
+count, duration, HTTP host (for fetches), and a 16-hex SHA-256 prefix of the
+query. The query text, page content, URLs, and cookies are never written.
 
 ## Acceptance
 

@@ -5,6 +5,20 @@ All notable changes to this project are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with the usual `0.x`
 allowance: minor releases may break compatibility.
 
+## [0.5.0] - 2026-10-29
+
+### Added
+
+- `xhs_search` (opt-in): searches xiaohongshu.com in the plugin's tab and
+  returns titles, links with their `xsec_token`, authors, likes, and publish
+  times. `web_search` cannot carry a `source` parameter because its schema comes
+  from the host, so notes that engines never index get a tool of their own.
+  Config: `xiaohongshu.enabled` (default `false`), `xiaohongshu.maxResults`
+  (10), `xiaohongshu.timeoutMs` (30000). A login wall and a slider captcha are
+  reported as themselves instead of as "no results".
+- The trace records `xhs` operations like searches and fetches (hashed query,
+  count, duration; never the query text or note URLs).
+
 ## [0.4.0] - 2026-10-29
 
 ### Added
