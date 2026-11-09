@@ -49,7 +49,10 @@ sh browse/install.sh          # 编译并同步到 DSH 工作区 + Codex
 - 前台创建标签（`PUT /json/new`）会把正在跑的页面打成后台页；要并行就用浏览器级 socket 的
   `Target.createTarget { background: true }`。
 - 密钥环弹窗来自 `Chrome Safe Storage` 的 ACL 绑定二进制签名：换二进制、反复重启都会弹，
-  所以一个 profile 只能有一个守护进程持有（单实例），别并发 spawn。
+  所以一个 profile 只能有一个守护进程持有（单实例），别并发 spawn。本机改用
+  `mockKeychain: true`（`~/.dsh/browse-state/config.json`），代价只是旧 cookie 要重登一次。
+- Chrome 的 cookie 大约 30 秒才落盘，直接 SIGTERM 会丢掉刚登录的会话。`close` 必须先发
+  `Browser.close` 再等端口消失，最后才用信号。
 - CDP 派发的 `Input.dispatchMouseEvent` 是 `isTrusted: true`，Turnstile 认；但坐标要换算成
   CSS 像素并叠加滚动偏移，且最好带几帧鼠标轨迹。
 

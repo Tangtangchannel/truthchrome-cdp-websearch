@@ -71,7 +71,7 @@ export const STATUS = Object.freeze({
  * @param {NodeJS.ProcessEnv} [env] - environment to read.
  * @returns {typeof DEFAULTS} resolved configuration.
  */
-export function readConfig(env = process.env) {
+export function readConfig(env = process.env, fileConfig = readStateConfig(env)) {
   const pick = (name, fallback) => {
     const raw = env[name]
     return raw === undefined || raw === '' ? fallback : raw
@@ -85,21 +85,45 @@ export function readConfig(env = process.env) {
     if (raw === undefined) return fallback
     return !/^(?:0|false|no|off)$/iu.test(String(raw))
   }
+  // A per-machine preference file wins over the built-in defaults but never
+  // over an explicit environment variable: the file exists so a setting such as
+  // "this machine has accepted the mock keychain" does not have to be exported
+  // into every shell, launchd job and agent run.
+  const fromFile = (name, fallback) => (fileConfig[name] === undefined ? fallback : fileConfig[name])
   return {
-    profile: pick('BROWSE_PROFILE', DEFAULTS.profile),
+    profile: pick('BROWSE_PROFILE', fromFile('profile', DEFAULTS.profile)),
     stateDir: pick('BROWSE_STATE', DEFAULTS.stateDir),
-    port: num('BROWSE_PORT', DEFAULTS.port),
-    hudPort: num('BROWSE_HUD_PORT', DEFAULTS.hudPort),
-    bin: pick('BROWSE_BIN', DEFAULTS.bin),
-    position: pick('BROWSE_POS', DEFAULTS.position),
-    size: pick('BROWSE_SIZE', DEFAULTS.size),
-    concurrency: num('BROWSE_CONCURRENCY', DEFAULTS.concurrency),
-    idleExitMs: num('BROWSE_IDLE_MS', DEFAULTS.idleExitMs),
-    hud: flag('BROWSE_HUD', DEFAULTS.hud),
-    headless: flag('BROWSE_HEADLESS', DEFAULTS.headless),
-    gpu: flag('BROWSE_GPU', DEFAULTS.gpu),
-    mockKeychain: flag('BROWSE_MOCK_KEYCHAIN', DEFAULTS.mockKeychain),
-    noSandbox: flag('BROWSE_NOSANDBOX', DEFAULTS.noSandbox),
+    port: num('BROWSE_PORT', fromFile('port', DEFAULTS.port)),
+    hudPort: num('BROWSE_HUD_PORT', fromFile('hudPort', DEFAULTS.hudPort)),
+    bin: pick('BROWSE_BIN', fromFile('bin', DEFAULTS.bin)),
+    position: pick('BROWSE_POS', fromFile('position', DEFAULTS.position)),
+    size: pick('BROWSE_SIZE', fromFile('size', DEFAULTS.size)),
+    concurrency: num('BROWSE_CONCURRENCY', fromFile('concurrency', DEFAULTS.concurrency)),
+    idleExitMs: num('BROWSE_IDLE_MS', fromFile('idleExitMs', DEFAULTS.idleExitMs)),
+    hud: flag('BROWSE_HUD', fromFile('hud', DEFAULTS.hud)),
+    headless: flag('BROWSE_HEADLESS', fromFile('headless', DEFAULTS.headless)),
+    gpu: flag('BROWSE_GPU', fromFile('gpu', DEFAULTS.gpu)),
+    mockKeychain: flag('BROWSE_MOCK_KEYCHAIN', fromFile('mockKeychain', DEFAULTS.mockKeychain)),
+    noSandbox: flag('BROWSE_NOSANDBOX', fromFile('noSandbox', DEFAULTS.noSandbox)),
+  }
+}
+
+/**
+ * Read this machine's preference file, if it exists.
+ *
+ * Unknown keys are ignored and a broken file is treated as absent: a typo in a
+ * config file must not stop the browser from starting.
+ *
+ * @param {NodeJS.ProcessEnv} [env] - environment, for the state directory.
+ * @returns {Record<string, unknown>} parsed preferences.
+ */
+export function readStateConfig(env = process.env) {
+  const dir = env.BROWSE_STATE || DEFAULTS.stateDir
+  try {
+    const parsed = JSON.parse(readFileSync(join(dir, 'config.json'), 'utf8'))
+    return parsed !== null && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
   }
 }
 
@@ -823,6 +847,14 @@ export class Engine {
     for (const id of [...this.#watchers.keys()]) this.unwatch(id)
     try { if (this.#hudPid !== undefined) process.kill(this.#hudPid, 'SIGTERM') } catch { /* gone */ }
     for (const id of [...this.tabs.keys()]) await this.closeTab(id)
+    // Ask Chrome to shut itself down before signalling it: it batches cookie
+    // writes (about every 30s), so a SIGTERM right after a sign-in can throw the
+    // fresh session away. Browser.close lets it flush on the way out.
+    try { await this.#cdp?.send('Browser.close') } catch { /* older builds */ }
+    for (let waited = 0; waited < 3000; waited += 200) {
+      if ((await probe(this.cfg.port)) === undefined) break
+      await sleep(200)
+    }
     this.#cdp?.close()
     this.#cdp = undefined
     // The browser may have been adopted rather than launched by this process, so
@@ -1143,6 +1175,10 @@ export async function runDaemon(cfg) {
       try { reply = await runOperation(engine, op) }
       catch (error) { reply = { ok: false, error: String(error?.message ?? error) } }
       connection.end(`${JSON.stringify(reply)}\n`)
+      // `close` means "nothing of mine is left running". Keeping the daemon alive
+      // would also keep the old configuration in memory, so a changed default
+      // (mock keychain, window policy) would silently not apply until reboot.
+      if (op.op === 'shutdown') setTimeout(() => process.exit(0), 100)
     })
   })
   await new Promise((resolve, reject) => {

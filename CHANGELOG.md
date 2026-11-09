@@ -28,6 +28,13 @@ allowance: minor releases may break compatibility.
   fails to start where crashpad or the GPU helper is blocked — a silent SIGTRAP
   that looked like "the browser did not answer the new-tab request".
 
+### Fixed
+
+- `close` asks Chrome to shut down (`Browser.close`) before signalling it. Chrome
+  batches cookie writes about every 30 seconds, so a SIGTERM right after a
+  sign-in silently threw the new session away; verified by setting a cookie and
+  closing immediately, then restarting.
+
 ### Changed
 
 - The browser now opens tabs in the background (`Target.createTarget` through the
@@ -37,6 +44,10 @@ allowance: minor releases may break compatibility.
   keychain access, therefore no recurring "Chrome wants to use your confidential
   information" prompts. The `personal` mode keeps the real keychain, because its
   cookies were encrypted with the key stored there.
+- Machine preferences moved into `<stateDir>/config.json`, so a decision such as
+  "this machine accepts the mock keychain" applies to every shell, launchd job
+  and agent run without exporting anything. Precedence: environment variable,
+  then `config.json`, then the built-in default.
 - New settings: `windowPosition` (default `-4000,-4000`), `hideWindow` (default
   `true`), `axPath` (default `browse-ax` on `PATH`, or `$DSH_BROWSER_AX`), and
   `useMockKeychain` (default: every mode except `personal`).

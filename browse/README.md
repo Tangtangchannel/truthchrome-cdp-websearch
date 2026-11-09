@@ -52,10 +52,24 @@ node browse.mjs close                  # 关浏览器和守护进程
 | `BROWSE_SIZE` | `1440,960` | 窗口尺寸 |
 | `BROWSE_HEADLESS` | `0` | `1` 用 `--headless=new`，彻底无窗口但指纹变弱 |
 | `BROWSE_GPU` | `1` | `0` 加 `--disable-gpu`（GPU 进程崩了时的兜底） |
-| `BROWSE_MOCK_KEYCHAIN` | `0` | `1` 加 `--use-mock-keychain`，零钥匙串弹窗，**但已存 cookie 可能解不开** |
+| `BROWSE_MOCK_KEYCHAIN` | 读 `config.json` | `1` 加 `--use-mock-keychain`，零钥匙串弹窗。实测：新的 cookie 跨重启保留，但用真钥匙串加密的旧 cookie 解不开，需要重登一次 |
 | `BROWSE_HUD` | `1` | `0` 永不弹浮层，只返回状态码 |
 | `BROWSE_CONCURRENCY` | `4` | `batch` 的并行标签数 |
 | `BROWSE_STATE` | `~/.dsh/browse-state` | socket / pid / 日志 |
+
+## 本机配置 `config.json`
+
+`~/.dsh/browse-state/config.json` 存这台机器的偏好，优先级 **环境变量 > config.json > 内置默认**：
+
+```json
+{
+  "mockKeychain": true,
+  "concurrency": 4,
+  "position": "-4000,-4000"
+}
+```
+
+之所以有这个文件：像「这台机器接受 mock keychain」这种决定，不该靠每次 export 到 shell、launchd 任务和每个 agent 会话里。
 
 ## 为什么是「隐藏」而不是「挪到屏幕外」
 
@@ -68,6 +82,12 @@ node browse.mjs close                  # 关浏览器和守护进程
   `--disable-features=CalculateNativeWinOcclusion`，后台标签页不会被降频
 
 `NSRunningApplication.hide()` 对别的应用返回 `false`，所以只能走 AX。
+
+## 关闭时先让 Chrome 自己退
+
+Chrome 把 cookie 攒在内存里，大约 30 秒才落盘一次。直接 SIGTERM 会把刚登录的会话丢掉，
+所以 `close` 先发 CDP 的 `Browser.close`（让 Chrome 自己 flush），最多等 3 秒才升级到信号。
+实测：设置 cookie 后立刻 `close`，重启后 cookie 仍在。
 
 ## 并发模型
 
@@ -99,7 +119,10 @@ Chrome 把 cookie 的加密密钥存在登录钥匙串的 `Chrome Safe Storage` 
 
 1. **单实例**：一个 profile 只允许一个守护进程持有，绝不并发 spawn（这一条就砍掉绝大部分弹窗）
 2. **固定二进制路径**：默认用 `/Applications/Google Chrome.app`，签名稳定，第一次点「始终允许」之后不再问
-3. 需要绝对干净时再开 `BROWSE_MOCK_KEYCHAIN=1`，代价是旧的加密 cookie 解不开
+3. 需要绝对干净时用 `mockKeychain: true`（本机已开）。实测结论：
+   - 新的 cookie **跨重启保留**（Chrome 的 mock key 存在 profile 的 `Local State` 里，不是每次随机）
+   - 用真钥匙串加密的旧 cookie 解不开 → **需要重登一次**
+   - 之后再也不会有钥匙串弹窗
 
 ## 目录
 
