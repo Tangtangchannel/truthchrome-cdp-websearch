@@ -88,16 +88,18 @@ test('urls are collected and de-duplicated from free text', () => {
 })
 
 test('configuration defaults are quiet and pinned', () => {
-  const cfg = readConfig({})
+  // An explicit empty preference file keeps the assertion independent of the
+  // machine running the test (a developer's config.json must not change it).
+  const cfg = readConfig({}, {})
   assert.equal(cfg.position, '-4000,-4000')
   assert.equal(cfg.hud, true)
   assert.equal(cfg.headless, false)
   assert.equal(cfg.noSandbox, false)
-  assert.match(cfg.profile, /\.browse-profile$/u)
+  assert.match(cfg.profile, /truthchrome\/profile$/u)
 })
 
 test('environment overrides are honoured', () => {
-  const cfg = readConfig({ BROWSE_PROFILE: '/tmp/p', BROWSE_HEADLESS: '1', BROWSE_HUD: '0', BROWSE_CONCURRENCY: '9' })
+  const cfg = readConfig({ BROWSE_PROFILE: '/tmp/p', BROWSE_HEADLESS: '1', BROWSE_HUD: '0', BROWSE_CONCURRENCY: '9' }, {})
   assert.equal(cfg.profile, '/tmp/p')
   assert.equal(cfg.headless, true)
   assert.equal(cfg.hud, false)

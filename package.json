@@ -1,7 +1,7 @@
 {
   "name": "dsh-chromium-websearch",
-  "version": "0.6.0",
-  "description": "Browser-backed web_search and web_fetch for DeepSeek Harness: real Chromium, real pages, no API keys.",
+  "version": "0.6.1",
+  "description": "Chromium-backed web search and page fetching over the DevTools Protocol: real tabs, background tabs, no API keys. Ships as a DeepSeek Harness plugin and as a standalone engine for Codex and shell use.",
   "type": "module",
   "license": "GPL-3.0-or-later",
   "exports": {
@@ -73,5 +73,8 @@
     "web-fetch",
     "chromium",
     "cordis"
-  ]
+  ],
+  "bin": {
+    "browse": "browse/browse.mjs"
+  }
 }

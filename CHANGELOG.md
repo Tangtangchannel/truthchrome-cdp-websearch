@@ -5,6 +5,26 @@ All notable changes to this project are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with the usual `0.x`
 allowance: minor releases may break compatibility.
 
+## [0.6.1] - 2026-11-10
+
+### Changed
+
+- The standalone engine no longer ships machine-specific defaults. Its state root
+  is `${XDG_STATE_HOME:-~/.local/state}/truthchrome`, its profile is
+  `<state>/profile`, and the browser binary is discovered per platform (Chrome,
+  Chromium, Edge, Brave on macOS; `google-chrome`/`chromium` on Linux;
+  `chrome.exe` on Windows). A machine that wants different values writes them to
+  `<state>/config.json` instead of patching the source.
+- A missing *default* profile is created on first run; a missing *explicitly
+  configured* profile is still an error, so a pinned path can never be replaced
+  by an empty one behind the user's back.
+- `browse/install.sh` no longer assumes a DSH workspace: it installs to
+  `BROWSE_PREFIX` (default `~/.local/share/truthchrome`), adds the Codex copy only
+  when `~/.codex` exists, and touches a DSH workspace only when `DSH_WORKSPACE` is
+  set.
+- `package.json` describes the package as a Chromium-backed search/fetch tool for
+  DeepSeek Harness and Codex, and exposes the engine as a `browse` executable.
+
 ## [0.6.0] - 2026-11-10
 
 ### Added

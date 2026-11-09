@@ -110,11 +110,13 @@ agent use, with the window taken out of the picture:
 - When a page really needs a person, a non-activating floating panel appears with
   a live view of that one page, forwards your clicks and typing into the real tab,
   and disappears when the wall clears.
-- The profile is pinned and never created on demand: an empty profile silently
-  loses every login.
+- A configured profile is never created on demand: an empty replacement would
+  silently lose every login. A first run with no configuration creates the
+  default profile once.
 
 ```bash
-node browse/browse.mjs status
+sh browse/install.sh          # builds the two Swift helpers, installs to ~/.local/share/truthchrome
+browse status
 node browse/browse.mjs text https://example.com
 node browse/browse.mjs batch https://a.test https://b.test https://c.test
 node browse/browse.mjs close

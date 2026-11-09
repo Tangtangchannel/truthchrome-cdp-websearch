@@ -21,13 +21,48 @@ import process from 'node:process'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
+/** Per-user state root, honouring XDG so the tool is not macOS-only. */
+const STATE_HOME = process.env.XDG_STATE_HOME || join(homedir(), '.local', 'state')
+const STATE_ROOT = join(STATE_HOME, 'truthchrome')
+
+/**
+ * First Chrome-family binary that exists on this platform.
+ *
+ * @returns {string} the path to use when nothing is configured.
+ */
+export function defaultBrowser() {
+  const candidates = process.platform === 'darwin'
+    ? [
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        join(homedir(), 'Applications', 'Google Chrome.app', 'Contents', 'MacOS', 'Google Chrome'),
+        '/Applications/Chromium.app/Contents/MacOS/Chromium',
+        '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+        '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
+      ]
+    : process.platform === 'win32'
+      ? [
+          join(process.env['PROGRAMFILES'] ?? 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+          join(process.env['LOCALAPPDATA'] ?? 'C:\\Users\\Public', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+          join(process.env['PROGRAMFILES'] ?? 'C:\\Program Files', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+        ]
+      : [
+          '/usr/bin/google-chrome',
+          '/usr/bin/google-chrome-stable',
+          '/usr/bin/chromium',
+          '/usr/bin/chromium-browser',
+          '/snap/bin/chromium',
+          '/usr/bin/microsoft-edge',
+        ]
+  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0]
+}
+
 /** Defaults; every field is overridable through an environment variable. */
 export const DEFAULTS = Object.freeze({
-  profile: join(homedir(), 'Documents/deepseek-harness/default-workspace/.browse-profile'),
-  stateDir: join(homedir(), '.dsh', 'browse-state'),
+  profile: join(STATE_ROOT, 'profile'),
+  stateDir: STATE_ROOT,
   port: 9333,
   hudPort: 9336,
-  bin: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  bin: defaultBrowser(),
   // Two screens to the left and up: macOS happily keeps a window there, and a
   // window that is never on screen cannot interrupt anything.
   position: '-4000,-4000',
@@ -397,12 +432,20 @@ export class Engine {
     mkdirSync(this.cfg.stateDir, { recursive: true })
     const marker = join(this.cfg.profile, 'Default', 'Preferences')
     const legacy = join(this.cfg.profile, 'Local State')
-    if (!existsSync(this.cfg.profile) || (!existsSync(marker) && !existsSync(legacy))) {
-      throw new Error(
-        `the pinned profile does not exist: ${this.cfg.profile}\n` +
-        'Refusing to create a fresh one: an empty profile silently loses every login state.\n' +
-        'Point BROWSE_PROFILE at a profile you have already signed into.',
-      )
+    const usable = existsSync(this.cfg.profile) && (existsSync(marker) || existsSync(legacy))
+    if (!usable) {
+      // An explicit profile that is missing is a mistake worth stopping on: the
+      // user pointed at a directory and an empty replacement would silently lose
+      // every login. A missing *default* profile is just a first run.
+      if (this.cfg.profile !== DEFAULTS.profile) {
+        throw new Error(
+          `the configured profile does not exist: ${this.cfg.profile}\n` +
+          'Refusing to create a fresh one: an empty profile silently loses every login state.\n' +
+          'Point BROWSE_PROFILE at a profile you have already signed into, or unset it to use the default.',
+        )
+      }
+      mkdirSync(this.cfg.profile, { recursive: true })
+      this.log(`created a first-run profile at ${this.cfg.profile}`)
     }
     const adopted = await this.#adopt()
     if (adopted !== undefined) {

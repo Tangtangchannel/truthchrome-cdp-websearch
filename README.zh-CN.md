@@ -30,10 +30,11 @@ Harness 自带的搜索走 HTTP API，自带的抓取就是个 HTTP 客户端。
   隐藏才是 macOS 真正认的做法，而隐藏状态下照样渲染，截图不受影响
 - 真需要人时，弹一个不抢焦点的浮动面板：投递那一页的实时画面，把点击和输入转发进真标签，
   墙一消失自己退出
-- profile 是钉死的，不存在就报错——空 profile 会静默丢掉所有登录态
+- 显式配置的 profile 不存在就报错——空 profile 会静默丢掉所有登录态；没有配置时首次运行会建一个默认 profile
 
 ```bash
-node browse/browse.mjs status
+sh browse/install.sh          # 编译两个 Swift 工具，装到 ~/.local/share/truthchrome
+browse status
 node browse/browse.mjs text https://example.com
 node browse/browse.mjs batch https://a.test https://b.test https://c.test
 node browse/browse.mjs close

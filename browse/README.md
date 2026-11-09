@@ -45,8 +45,8 @@ node browse.mjs close                  # 关浏览器和守护进程
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
-| `BROWSE_PROFILE` | `~/Documents/deepseek-harness/default-workspace/.browse-profile` | **钉死的** Chrome profile。不存在就报错退出，绝不新建 |
-| `BROWSE_BIN` | `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` | 浏览器二进制 |
+| `BROWSE_PROFILE` | `~/.local/state/truthchrome/profile` | Chrome profile。显式指定的目录不存在就报错，绝不新建；首次使用默认目录时会自动建一个空的 |
+| `BROWSE_BIN` | 自动探测（macOS 的 Google Chrome / Chromium / Edge / Brave，Linux 的 google-chrome / chromium，Windows 的 chrome.exe） | 浏览器二进制 |
 | `BROWSE_PORT` | `9333` | DevTools 端口 |
 | `BROWSE_HUD_PORT` | `9336` | 浮层桥接端口 |
 | `BROWSE_POS` | `-4000,-4000` | 窗口坐标（只是提示，见下文） |
@@ -56,7 +56,7 @@ node browse.mjs close                  # 关浏览器和守护进程
 | `BROWSE_MOCK_KEYCHAIN` | 读 `config.json` | `1` 加 `--use-mock-keychain`，零钥匙串弹窗。实测：新的 cookie 跨重启保留，但用真钥匙串加密的旧 cookie 解不开，需要重登一次 |
 | `BROWSE_HUD` | `1` | `0` 永不弹浮层，只返回状态码 |
 | `BROWSE_CONCURRENCY` | `4` | `batch` 的并行标签数 |
-| `BROWSE_STATE` | `~/.dsh/browse-state` | socket / pid / 日志 |
+| `BROWSE_STATE` | `~/.local/state/truthchrome`（尊重 `XDG_STATE_HOME`） | socket / pid / 日志 / `config.json` |
 
 ## 登录一次
 
@@ -70,9 +70,24 @@ node bin/browse.mjs close      # 会先让 Chrome flush，cookie 不会丢
 
 下次 `text` / `batch` 直接带这份登录态，窗口还是藏着的。
 
+## 安装
+
+```bash
+git clone https://github.com/Tangtangchannel/truthchrome-cdp-websearch.git
+cd truthchrome-cdp-websearch
+sh browse/install.sh                 # 编译 Swift 工具 + 安装到 ~/.local/share/truthchrome
+# 可选：
+#   DSH_WORKSPACE=/path/to/workspace  同时装进 <workspace>/bin
+#   BROWSE_PREFIX=/usr/local/opt/truthchrome
+```
+
+只依赖系统自带的 `node`（≥22，需要全局 `WebSocket`）和 `xcrun swiftc`。没有 npm 依赖。
+
+首次运行会在默认目录建一个空 profile；要带登录态就在 `config.json` 里指定一个已登录的 profile 目录。
+
 ## 本机配置 `config.json`
 
-`~/.dsh/browse-state/config.json` 存这台机器的偏好，优先级 **环境变量 > config.json > 内置默认**：
+`~/.local/state/truthchrome/config.json` 存这台机器的偏好，优先级 **环境变量 > config.json > 内置默认**：
 
 ```json
 {

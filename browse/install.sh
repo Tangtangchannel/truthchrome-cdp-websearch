@@ -1,12 +1,16 @@
 #!/bin/sh
-# Install the quiet engine for both consumers: the DSH workspace and Codex.
+# Install the quiet engine: build the native helpers, then copy the runtime into
+# the places that consume it.
 #
-# The engine lives in this repository and is copied out; nothing here edits the
-# plugin's own files under lib/.
+#   BROWSE_PREFIX   where the engine lives (default: ~/.local/share/truthchrome)
+#   DSH_WORKSPACE   optional DSH workspace; when set, also installs to $DSH_WORKSPACE/bin
+#   BROWSE_CODEX_HOME  optional Codex tool directory; default ~/.codex/tools/truthchrome
+#                      when ~/.codex exists
+#
+# Nothing here edits the plugin's own files under lib/.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
-workspace=${DSH_WORKSPACE:-$HOME/Documents/deepseek-harness/default-workspace}
-codex_home=${BROWSE_CODEX_HOME:-$HOME/.codex/tools/truthchrome}
+prefix=${BROWSE_PREFIX:-$HOME/.local/share/truthchrome}
 
 sh "$here/hud/build.sh"
 
@@ -20,10 +24,18 @@ install_into() {
   echo "installed: $target"
 }
 
-install_into "$workspace/bin"
-install_into "$codex_home"
+install_into "$prefix"
+
+if [ -n "${DSH_WORKSPACE:-}" ]; then
+  install_into "$DSH_WORKSPACE/bin"
+else
+  echo "skipped DSH workspace (set DSH_WORKSPACE to install into <workspace>/bin)"
+fi
+
+if [ -d "$HOME/.codex" ]; then
+  install_into "${BROWSE_CODEX_HOME:-$HOME/.codex/tools/truthchrome}"
+fi
 
 echo
 echo "next:"
-echo "  $workspace/bin/browse.mjs status"
-echo "  $codex_home/browse.mjs status"
+echo "  $prefix/browse.mjs status"

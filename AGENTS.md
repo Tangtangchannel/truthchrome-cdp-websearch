@@ -10,6 +10,15 @@
 两者共享同一套 CDP 思路，但**不共享代码**。改 `lib/` 不会影响 `browse/`，反之亦然；
 别为了"统一"去重构其中一边，插件那边的错误码、mode 语义和 trace 格式是对外契约。
 
+## 默认值必须是通用的
+
+仓库是公开项目，代码里的默认路径不能绑定某一台机器（作者本机的设置在
+`~/.local/state/truthchrome/config.json`，不进仓库）：
+
+- state 根：`${XDG_STATE_HOME:-~/.local/state}/truthchrome`
+- profile：`<state>/profile`，首次运行自动创建；**显式指定**的 profile 不存在则报错
+- 浏览器：按平台探测 Chrome / Chromium / Edge / Brave
+
 ## 硬性规则
 
 1. **绝不自动创建 profile。** 插件与 `browse/` 都只接受已存在的 Chrome profile 目录；
