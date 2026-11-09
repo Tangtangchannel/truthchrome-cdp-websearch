@@ -1,3 +1,5 @@
 .tmp/
 node_modules/
 *.log
+browse/hud/browse-ax
+browse/hud/browse-hud

@@ -14,7 +14,7 @@ import process from 'node:process'
 
 import { reset, runAll } from './harness.mjs'
 
-const suites = ['./unit.test.mjs', './modes.test.mjs', './provision.test.mjs', './cdp.test.mjs', './download.test.mjs']
+const suites = ['./unit.test.mjs', './modes.test.mjs', './provision.test.mjs', './cdp.test.mjs', './download.test.mjs', './engine.test.mjs']
 let total = 0
 const failures = []
 
