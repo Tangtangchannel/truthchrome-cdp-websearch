@@ -17,6 +17,30 @@ Harness 自带的搜索走 HTTP API，自带的抓取就是个 HTTP 客户端。
 - `web_fetch` → 在真实标签页里打开目标页，等掉常见的机器人拦截页，去掉 script/style/svg/iframe，返回干净的 HTML 或纯文本。
 - `xhs_search` → 在小红书的搜索页里读 DOM，返回笔记标题、链接（带 `xsec_token`，否则笔记打不开）、作者、点赞数和发布时间。它是独立工具而不是 `web_search` 的参数：`web_search` 的参数由 host 定义（只有 `queries`），插件加不了 `source`。默认关闭，在已登录的 profile 上打开 `xiaohongshu.enabled` 才有意义；未登录时工具会明确报登录墙。
 
+## 安静版引擎（`browse/`）
+
+插件的浏览器对模型不可见，但对桌面可见——它是一个真实的有头 Chromium。`browse/`
+把同一套思路做成命令行工具，并且把窗口彻底从屏幕上拿掉：
+
+- 常驻守护进程持有浏览器，第二次调用不再冷启动
+- 标签页后台创建（`Target.createTarget` + `background: true`），各自独立 CDP session，
+  一个站被拦住不会拖累其他站
+- 每页判定 `OK` / `CAPTCHA` / `LOGIN` / `BLOCKED` / `STUCK`，同时就是退出码（0/10/11/12/13）
+- 启动后用 **Accessibility 隐藏整个应用**：Chrome 会把 `--window-position` 夹回屏幕内，
+  隐藏才是 macOS 真正认的做法，而隐藏状态下照样渲染，截图不受影响
+- 真需要人时，弹一个不抢焦点的浮动面板：投递那一页的实时画面，把点击和输入转发进真标签，
+  墙一消失自己退出
+- profile 是钉死的，不存在就报错——空 profile 会静默丢掉所有登录态
+
+```bash
+node browse/browse.mjs status
+node browse/browse.mjs text https://example.com
+node browse/browse.mjs batch https://a.test https://b.test https://c.test
+node browse/browse.mjs close
+```
+
+命令表、环境变量、钥匙串说明和已知边界见 [browse/README.md](browse/README.md)。
+
 ## 安装
 
 作为 profile bundle 安装：

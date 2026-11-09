@@ -5,6 +5,42 @@ All notable changes to this project are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with the usual `0.x`
 allowance: minor releases may break compatibility.
 
+## [0.6.0] - 2026-11-10
+
+### Added
+
+- `browse/`: a standalone quiet engine for Codex and shell use. Same CDP approach,
+  but with a persistent daemon, a target pool (`Target.createTarget` with
+  `background: true`), per-page classification (`OK` / `CAPTCHA` / `LOGIN` /
+  `BLOCKED` / `STUCK`, also exposed as exit codes 0/10/11/12/13), and a floating
+  HUD that shows a live view of a page waiting for a human and forwards clicks
+  and typing back into the real tab. The browser window never appears on screen:
+  the app is hidden through Accessibility (`browse-ax`), which is the only way
+  macOS honours after Chrome clamps `--window-position` back onto the display.
+- `classifyChallenge()` distinguishes a CAPTCHA wall from a login wall, and the
+  `web_fetch` error says which one it hit instead of blaming both.
+
+### Fixed
+
+- On macOS the browser candidates now start with `/Applications/Google Chrome.app`
+  instead of the build this bundle downloaded. A downloaded build carries its own
+  code signature (so the login keychain asks again whenever it is replaced) and
+  fails to start where crashpad or the GPU helper is blocked — a silent SIGTRAP
+  that looked like "the browser did not answer the new-tab request".
+
+### Changed
+
+- The browser now opens tabs in the background (`Target.createTarget` through the
+  browser socket, with `PUT /json/new` as the fallback), so parallel requests no
+  longer steal the window from each other and throttle whatever was loading.
+- Dedicated profiles launch with `--use-mock-keychain` by default: no login
+  keychain access, therefore no recurring "Chrome wants to use your confidential
+  information" prompts. The `personal` mode keeps the real keychain, because its
+  cookies were encrypted with the key stored there.
+- New settings: `windowPosition` (default `-4000,-4000`), `hideWindow` (default
+  `true`), `axPath` (default `browse-ax` on `PATH`, or `$DSH_BROWSER_AX`), and
+  `useMockKeychain` (default: every mode except `personal`).
+
 ## [0.5.0] - 2026-10-29
 
 ### Added

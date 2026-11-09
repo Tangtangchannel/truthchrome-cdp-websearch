@@ -1,4 +1,4 @@
-# dsh-chromium-websearch
+# truthchrome-cdp-websearch
 
 English · [中文](README.zh-CN.md)
 
@@ -92,6 +92,38 @@ why the bundled patch pins only `mode`:
 Because the bundle patch is applied last, that override wins over the base
 composition. Removing the bundle restores the stock providers. The plugin entry
 itself pins only `mode`, so user-level overrides stay short.
+
+## The quiet engine (`browse/`)
+
+The plugin's browser is invisible to the model but visible on the desktop: it is a
+real headful Chromium window. `browse/` is the same idea packaged for shell and
+agent use, with the window taken out of the picture:
+
+- A persistent daemon owns the browser, so a second call never pays a cold start.
+- Tabs open in the background (`Target.createTarget` with `background: true`), each
+  with its own CDP session, so one blocked site cannot stall the rest.
+- Every page is classified as `OK`, `CAPTCHA`, `LOGIN`, `BLOCKED` or `STUCK`, and
+  that verdict is also the process exit code (0/10/11/12/13).
+- The application is **hidden** through Accessibility after launch. Chrome clamps
+  `--window-position` back onto the display, so hiding is the only thing macOS
+  actually honours; a hidden Chrome still renders, so screenshots keep working.
+- When a page really needs a person, a non-activating floating panel appears with
+  a live view of that one page, forwards your clicks and typing into the real tab,
+  and disappears when the wall clears.
+- The profile is pinned and never created on demand: an empty profile silently
+  loses every login.
+
+```bash
+node browse/browse.mjs status
+node browse/browse.mjs text https://example.com
+node browse/browse.mjs batch https://a.test https://b.test https://c.test
+node browse/browse.mjs close
+```
+
+See [browse/README.md](browse/README.md) for the full command table, the
+environment variables, the keychain notes and the known limits.
+`sh browse/smoke.sh` checks the whole chain end to end: hidden browser, one fetch,
+three concurrent sites, and a CAPTCHA wall reported as exit code 10.
 
 ## Install
 
