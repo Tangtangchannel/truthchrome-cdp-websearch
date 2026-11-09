@@ -15,6 +15,7 @@ node browse.mjs status                 # 守护进程 / 浏览器 / 标签页状
 node browse.mjs text https://a.test    # 抓正文
 node browse.mjs html https://a.test    # 抓 HTML
 node browse.mjs open https://a.test    # 开一个后台标签，返回 id + 状态（不关）
+node browse.mjs show https://a.test    # 同上，但把真窗口放出来（登录用）
 node browse.mjs batch url1 url2 url3   # 并发抓多个站
 node browse.mjs eval 'document.title'  # 一次性求值（BROWSE_URL 可先导航）
 node browse.mjs shot https://a.test out.jpg
@@ -56,6 +57,18 @@ node browse.mjs close                  # 关浏览器和守护进程
 | `BROWSE_HUD` | `1` | `0` 永不弹浮层，只返回状态码 |
 | `BROWSE_CONCURRENCY` | `4` | `batch` 的并行标签数 |
 | `BROWSE_STATE` | `~/.dsh/browse-state` | socket / pid / 日志 |
+
+## 登录一次
+
+引擎默认把窗口藏起来，所以「自己登录一次」需要显式放出来：
+
+```bash
+node bin/browse.mjs show https://pixiv.net
+# 窗口出现在前台，正常登录；登录完
+node bin/browse.mjs close      # 会先让 Chrome flush，cookie 不会丢
+```
+
+下次 `text` / `batch` 直接带这份登录态，窗口还是藏着的。
 
 ## 本机配置 `config.json`
 

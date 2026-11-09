@@ -1014,6 +1014,17 @@ async function runOperation(engine, op) {
       const tab = engine.tabs.get(id)
       return { ok: true, id, url: tab.url, title: tab.title, status: verdict.status, reason: verdict.reason }
     }
+    case 'show': {
+      // The window is hidden while the engine works, which also means a human
+      // cannot sign in. `show` is the explicit "let me look at it" door: open a
+      // tab, bring the application back, front the window.
+      await engine.start()
+      const { id } = await engine.createTarget('about:blank')
+      const verdict = await engine.navigate(id, op.url)
+      await engine.reveal(id)
+      const tab = engine.tabs.get(id)
+      return { ok: true, id, url: tab?.url ?? op.url, title: tab?.title ?? '', status: verdict.status, reason: verdict.reason, visible: true }
+    }
     case 'visit': {
       await engine.start()
       const { id } = await engine.createTarget('about:blank')
@@ -1270,6 +1281,7 @@ export function exitCodeFor(status) {
 const HELP = `browse.mjs — quiet CDP browser for Codex / DSH
 
   open <url>                 open a background tab and report its state
+  show <url>                 open a tab AND bring the window back (signing in)
   text <url>                 print the page's visible text
   html <url>                 print the page's HTML
   goto <url>                 alias for text
@@ -1357,6 +1369,11 @@ export async function main(argv = process.argv.slice(2)) {
       const url = rest[0]
       if (url === undefined) { process.stderr.write('open needs a URL\n'); return EXIT.error }
       return emit(await callDaemon(cfg, { op: 'open', url }))
+    }
+    case 'show': {
+      const url = rest[0]
+      if (url === undefined) { process.stderr.write('show needs a URL\n'); return EXIT.error }
+      return emit(await callDaemon(cfg, { op: 'show', url }))
     }
     case 'goto':
     case 'text':
